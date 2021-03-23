@@ -3,8 +3,8 @@ from tqdm import tqdm
 from itertools import product, chain
 from operator import mul
 from functools import reduce
-from math import floor, ceil, sqrt
-from sympy import prime, isprime, primefactors, primerange
+from math import floor, ceil, sqrt, log
+from sympy import prime, isprime, primefactors, primerange, primepi
 
 
 # main
@@ -43,20 +43,24 @@ def encode_str(text: str, repeat: bool=False) -> str:
 
 	semiprimes = [primes[i]*primes[i+1] for i in range(0, len(primes), 2)]
 	semiprimes_hash = int_to_bytes(hash(tuple(semiprimes)), utf_bits, num_split_chars)
-	print("semiprimes:", semiprimes)
+	#print("semiprimes:", semiprimes)
+
+	semiprimes = [pi_2(i) for i in tqdm(semiprimes)]
+	#print("semiprimes:", semiprimes)
 	semiprimes_offset = min(semiprimes)-1
-	print("semiprimes_offset:", semiprimes_offset)
+	#print("semiprimes_offset:", semiprimes_offset)
 	semiprimes_offset_bytes = int_to_bytes(semiprimes_offset, utf_bits, num_split_chars)
 	semiprimes = [i-semiprimes_offset for i in semiprimes]
 	#print("semiprimes:", semiprimes)
 
 	d = ceil(max(semiprimes)/(2**utf_bits - num_split_chars))  # divisor
+	print("d:", d)
 	d_bytes = int_to_bytes(d, utf_bits, num_split_chars)
 
 	semiprimes_small = [round(i/d)+num_split_chars for i in semiprimes]
 
 	final = [num_repeats, *append_min, *semiprimes_hash, 1, *semiprimes_offset_bytes, 1, *text_offset_bytes, 1, *d_bytes, 1, *orders, 1, *semiprimes_small]
-	#print("final:", final)
+	print("final:", final)
 	final = "".join([chr(char) for char in final])
 
 	return final
@@ -95,7 +99,7 @@ def decode_str(text: str) -> str:
 		#print("semiprimes_d:", semiprimes_d)
 
 		#print("A")
-		semiprimes_options = [[i+j+semiprimes_offset for j in range(round(-d/2), round(d/2)+1) if is_semiprime(i+j+semiprimes_offset)] for i in tqdm(semiprimes_d)]
+		semiprimes_options = [[nth_semiprime(i+j+semiprimes_offset) for j in range(round(-d/2), round(d/2)+1)] for i in tqdm(semiprimes_d)]
 		#print("semiprimes_options_info:", len(semiprimes_options), min(semiprimes_options), max(semiprimes_options))
 		#print("semiprimes_options:", semiprimes_options)
 
@@ -141,6 +145,31 @@ def decode_str(text: str) -> str:
 
 
 # helper functions
+#def nth_semiprime(n: int) -> int:
+#	return 8 + sum([floor(2*n / (n+3+sum([floor(sum([ceil(ceil(m/prime(i)) - (m/prime(i))) for i in range(1, primepi(floor(m**(1/3))))]) / primepi(floor(m**(1/3)))) + ceil(sum([floor((m/prime(i)) - ceil(m/prime(i)) + 1) * T(m/prime(i)) for i in range(1, primepi(floor(m**(1/3))))]) / primepi(floor(m**(1/3)))) - T(m) for m in range(8, x+1)]))) for x in range(8, floor(4*n*log(n))+1)])
+#
+#def T(m: int) -> int:
+#	a = floor((ceil(m/2 - floor(m/2)) + ceil(m/3 - floor(m/3))) / 2)
+#	b = floor(sum([ceil(m/(6*k - 1) - floor(m/(6*k - 1))) for k in range(1, ceil(sqrt(m)/6)+1)]) / ceil(sqrt(m)/6))
+#	c = floor(sum([ceil(m/(6*k - 1) - floor(m/(6*k + 1))) for k in range(1, ceil(sqrt(m)/6)+1)]) / ceil(sqrt(m)/6))
+#	return floor((a+b+c) / 3)
+
+def nth_semiprime(n: int) -> int:
+	sp, i, j = 0, 0, 0
+	while i < n:
+		if is_semiprime(j):
+			sp = j
+			i += 1
+		j += 1
+
+	return sp
+
+def pi_2(n: int) -> int:
+	ns = [primepi(n/prime(i)) - i + 1 for i in range(1, primepi(sqrt(n))+1)]
+
+	return sum(ns)
+
+
 def int_to_bytes(n: int, num_bits: int, offset: int=0) -> List[int]:
 	n_bin = bin(abs(n))[2:]
 	num_bits -= 1
